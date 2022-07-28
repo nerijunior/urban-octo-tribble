@@ -1,25 +1,39 @@
-import cx from "classnames";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import fetchRepositories from "./api";
+import Pagination from "./components/Pagination";
+import SearchRepoForm from "./components/SearchRepoForm";
 
 function App() {
-  const [totalPages, setTotalPages] = useState(0);
-  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState(null);
+  const [retry, setRetry] = useState(false);
+  const [totalRepositoriesCount, setTotalRepositoriesCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [repositories, setRepositories] = useState([]);
+
+  useEffect(() => {
+    if (!query) {
+      return;
+    }
+
+    loadRepositories();
+  }, [currentPage, sortBy, retry]);
 
   const loadRepositories = async () => {
     setLoading(true);
 
     try {
-      const response = await fetchRepositories(query, sortBy, null, page);
-      console.log(response);
+      const response = await fetchRepositories(
+        query,
+        sortBy,
+        null,
+        currentPage
+      );
 
       setRepositories(response.items);
-      setTotalPages(response.total_count);
+      setTotalRepositoriesCount(response.total);
     } catch (error) {
       setError(error.message);
     } finally {
@@ -27,26 +41,13 @@ function App() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    loadRepositories();
+  const handleSubmit = () => {
+    setCurrentPage(1);
+    setRetry(!retry);
   };
 
-  const handleChangeSortBy = (newValue) => () => {
-    setSortBy(newValue);
-    loadRepositories();
-  };
-
-  const handlePreviousPage = () => {
-    console.log("handlePreviousPage");
-  };
-
-  const handleNextPage = () => {
-    setPage();
-  };
-
-  const handlePageChange = (page) => () => {
-    console.log("change page", page);
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -54,52 +55,16 @@ function App() {
       <div className="section">
         {error && <div className="notification is-warning">{error}</div>}
 
-        <form onSubmit={handleSubmit} className="mb-5">
-          <div className="field is-grouped">
-            <div className="control is-expanded">
-              <input
-                type="text"
-                className="input"
-                id="query"
-                placeholder="Search"
-                disabled={loading}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-            <div className="control">
-              <button
-                type="submit"
-                disabled={loading}
-                className={cx("button is-primary", { "is-loading": loading })}
-              >
-                Search
-              </button>
-            </div>
-          </div>
+        <SearchRepoForm
+          query={query}
+          setQuery={setQuery}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          onSubmit={handleSubmit}
+          loading={loading}
+        />
 
-          <div className="field">
-            <div className="control">
-              <label className="label">Sort By: </label>
-              <label className="radio">
-                <input
-                  type="radio"
-                  checked={sortBy == null}
-                  onChange={handleChangeSortBy(null)}
-                />
-                Best Match
-              </label>
-              <label className="radio">
-                <input
-                  type="radio"
-                  checked={sortBy === "stars"}
-                  onChange={handleChangeSortBy("stars")}
-                />
-                Stars
-              </label>
-            </div>
-          </div>
-        </form>
+        <span>Page: {currentPage}</span>
 
         <table className="table is-fullwidth is-stripped is-bordered is-hoverable">
           <thead>
@@ -157,56 +122,12 @@ function App() {
           </tbody>
         </table>
 
-        {!loading && repositories.length > 0 && (
-          <nav className="pagination" role="navigation" aria-label="pagination">
-            <button
-              type="button"
-              disabled={page === 1}
-              className="pagination-previous"
-              onClick={handlePreviousPage}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              disabled={page === totalPages}
-              className="pagination-next"
-              onClick={handleNextPage}
-            >
-              Next page
-            </button>
-            <ul className="pagination-list">
-              <li>
-                <button
-                  type="button"
-                  className={cx("pagination-link", {
-                    "is-current": page === 1,
-                  })}
-                  onClick={handlePageChange(1)}
-                >
-                  1
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  className="pagination-link"
-                  onClick={handlePageChange(2)}
-                >
-                  2
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  className="pagination-link"
-                  onClick={handlePageChange(3)}
-                >
-                  3
-                </button>
-              </li>
-            </ul>
-          </nav>
+        {!loading && totalRepositoriesCount > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalRecords={totalRepositoriesCount}
+            onPageChange={(value) => handlePageChange(value)}
+          />
         )}
       </div>
     </div>
